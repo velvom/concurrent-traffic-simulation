@@ -101,6 +101,14 @@ void TrafficLight::cycleThroughPhases()
             _currentPhase = (_currentPhase == TrafficLightPhase::green) ? TrafficLightPhase::red : TrafficLightPhase::green;
             lck.unlock();
 
+            // Send update message to TrafficLightPhase queue: _tlphasequeue"
+            _tlphasequeue->send(std::move(_currentPhase));
+            //auto ftrUpdateMsg = std::async(std::launch::async, &MessageQueue<TrafficLightPhase>::send, _tlphasequeue, std::move(_currentPhase));
+
+            // wait until TrafficLightPhase queue has been updated
+            //ftrUpdateMsg.get();
+
+
             // reset stop watch for next cycle
             lastUpdate = std::chrono::system_clock::now();
         }
