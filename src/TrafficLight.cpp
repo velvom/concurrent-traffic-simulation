@@ -33,6 +33,7 @@ void MessageQueue<T>::send(T &&msg)
 
     // add message to deque
     //std::cout << "   Message " << msg << " has been sent to the queue" << std::endl;
+    _queue.clear();
     _queue.push_back(std::move(msg));
     _cond.notify_one(); // notify client after pushing new message into deque
 }
@@ -53,7 +54,6 @@ void TrafficLight::waitForGreen()
 
     while (true)
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         auto message = _tlphasequeue->receive();
         if (message == TrafficLightPhase::green) {
             return;
@@ -81,8 +81,11 @@ void TrafficLight::cycleThroughPhases()
     // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles. 
 
     std::random_device rd;
-    std::mt19937 e{rd()};
-    std::uniform_int_distribution<int> cycleDuration{4000, 6000};
+    static std::mt19937 e{rd()}; // static since creating a new engine is time consuming
+    static std::uniform_int_distribution<long> udist{4000, 6000};
+
+    long cycleDuration = udist(e); // For the random number generated need to be outside the loop
+    long timeSinceLastUpdate;
 
     // init stop watch
     std::chrono::time_point<std::chrono::system_clock> lastUpdate = std::chrono::system_clock::now();
@@ -93,8 +96,8 @@ void TrafficLight::cycleThroughPhases()
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         // compute time difference to stop watch
-        long timeSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - lastUpdate).count();
-        if (timeSinceLastUpdate >= cycleDuration(e))
+        timeSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - lastUpdate).count();
+        if (timeSinceLastUpdate >= cycleDuration)
         {
             // Toggle between Red and Green
             std::unique_lock<std::mutex> lck(_mutex);
@@ -108,9 +111,11 @@ void TrafficLight::cycleThroughPhases()
             // wait until TrafficLightPhase queue has been updated
             //ftrUpdateMsg.get();
 
-
             // reset stop watch for next cycle
             lastUpdate = std::chrono::system_clock::now();
+
+            //Picking another random number
+            cycleDuration = udist(e);
         }
     }
 }
